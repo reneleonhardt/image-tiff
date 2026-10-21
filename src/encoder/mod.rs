@@ -59,6 +59,10 @@ pub enum Compression {
     Deflate(u8),
     /// [PackBits](https://en.wikipedia.org/wiki/PackBits) compression, a variant of RLE compression scheme. Fast, primitive compression with a poor compression ratio.
     Packbits,
+    /// Zstandard compression with the specified level. `0` uses Zstandard's default.
+    /// Negative levels favor faster compression.
+    #[cfg(feature = "zstd")]
+    Zstd(i32),
 }
 
 impl Compression {
@@ -70,6 +74,8 @@ impl Compression {
             #[cfg(feature = "deflate")]
             Compression::Deflate(_) => CompressionMethod::Deflate,
             Compression::Packbits => CompressionMethod::PackBits,
+            #[cfg(feature = "zstd")]
+            Compression::Zstd(_) => CompressionMethod::ZSTD,
         }
     }
 
@@ -81,6 +87,8 @@ impl Compression {
             #[cfg(feature = "deflate")]
             Compression::Deflate(level) => compression::Deflate::with_level(*level).get_algorithm(),
             Compression::Packbits => compression::Packbits {}.get_algorithm(),
+            #[cfg(feature = "zstd")]
+            Compression::Zstd(level) => compression::Zstd::with_level(*level).get_algorithm(),
         }
     }
 }

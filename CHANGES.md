@@ -14,6 +14,7 @@ Fixes:
   leftmost columns of the following row.
 
 Additions:
+- Added Zstandard encoding with configurable compression levels under the `zstd` feature.
 - Added the `TiffHeader` type. It can be used to create a `Decoder` in a state
   before the first IFD and allows opening files at an arbitrary first IFD
   offset rather than one indicated by an encoded header at the start.

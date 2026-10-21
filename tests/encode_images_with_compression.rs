@@ -335,3 +335,86 @@ fn encode_decode_strips_with_compression() {
         );
     }
 }
+
+#[test]
+#[cfg(feature = "zstd")]
+fn encode_decode_with_zstd() {
+    for level in [-3, 0, 6] {
+        encode_decode_with_compression(Compression::Zstd(level));
+    }
+}
+
+#[test]
+#[cfg(feature = "zstd")]
+fn zstd_strips_predictors_and_bigtiff() {
+    use tiff::encoder::{Predictor, TiffKind, TiffKindBig, TiffKindStandard};
+    use tiff::tags::Tag;
+
+    fn check<K: TiffKind>(manual: bool) {
+        let rgba: Vec<u8> = (0..7 * 5 * 4).map(|i| (i * 37) as u8).collect();
+        let rgb: Vec<u16> = (0..7 * 5 * 3).map(|i| (i * 117) as u16).collect();
+        let gray: Vec<f32> = (0..7 * 5).map(|i| i as f32 * 0.25 - 4.0).collect();
+        let mut file = Cursor::new(Vec::new());
+        {
+            let mut encoder = TiffEncoder::<_, K>::new_generic(&mut file)
+                .unwrap()
+                .with_compression(Compression::Zstd(0));
+            macro_rules! image {
+                ($color:ty, $data:expr, $predictor:expr) => {
+                    encoder = encoder.with_predictor($predictor);
+                    let mut image = encoder.new_image::<$color>(7, 5).unwrap();
+                    image.rows_per_strip(2).unwrap();
+                    image.encoder().write_tag(Tag::Artist, "Zstd").unwrap();
+                    if manual {
+                        let mut remaining = $data.as_slice();
+                        while !remaining.is_empty() {
+                            let count = image.next_strip_sample_count() as usize;
+                            image.write_strip(&remaining[..count]).unwrap();
+                            remaining = &remaining[count..];
+                            image.encoder().write_tag(Tag::Artist, "Zstd").unwrap();
+                        }
+                        image.finish().unwrap();
+                    } else {
+                        image.write_data($data).unwrap();
+                    }
+                };
+            }
+            image!(colortype::RGBA8, &rgba, Predictor::Horizontal);
+            image!(colortype::RGB16, &rgb, Predictor::Horizontal);
+            image!(colortype::Gray32Float, &gray, Predictor::FloatingPoint);
+        }
+        let bytes = file.into_inner();
+        let mut decoder = Decoder::open(Cursor::new(&bytes)).unwrap();
+        for mut expected in [
+            DecodingSampleBuffer::U8(rgba),
+            DecodingSampleBuffer::U16(rgb),
+            DecodingSampleBuffer::F32(gray),
+        ] {
+            decoder.next_image().unwrap();
+            assert_eq!(decoder.dimensions().unwrap(), (7, 5));
+            let mut ifd = decoder.current_ifd();
+            assert_eq!(ifd.get_tag_u32(Tag::Compression).unwrap(), 50000);
+            assert_eq!(ifd.get_tag_ascii_string(Tag::Artist).unwrap(), "Zstd");
+            let offsets = ifd.get_tag_u64_vec(Tag::StripOffsets).unwrap();
+            let counts = ifd.get_tag_u64_vec(Tag::StripByteCounts).unwrap();
+            assert_eq!((offsets.len(), counts.len()), (3, 3));
+            for (offset, count) in offsets.into_iter().zip(counts) {
+                let frame = &bytes[offset as usize..(offset + count) as usize];
+                assert_eq!(
+                    zstd::zstd_safe::find_frame_compressed_size(frame).unwrap(),
+                    frame.len()
+                );
+            }
+            let mut actual = decoder.read_image().unwrap();
+            assert_eq!(
+                actual.as_buffer(0).as_bytes(),
+                expected.as_buffer(0).as_bytes()
+            );
+        }
+        assert!(!decoder.more_images());
+    }
+    for manual in [false, true] {
+        check::<TiffKindStandard>(manual);
+        check::<TiffKindBig>(manual);
+    }
+}

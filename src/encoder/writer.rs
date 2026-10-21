@@ -227,6 +227,8 @@ fn encoder_on_short_writes() {
     for comp in [
         super::Compression::Uncompressed,
         super::Compression::Packbits,
+        #[cfg(feature = "zstd")]
+        super::Compression::Zstd(0),
     ] {
         write.inner.set_position(0);
         write.inner.get_mut().clear();
@@ -277,6 +279,8 @@ fn write_data_validates_remaining_samples() {
     for compression in [
         Compression::Uncompressed,
         Compression::Packbits,
+        #[cfg(feature = "zstd")]
+        Compression::Zstd(0),
     ] {
         for data in [&[0; 4][..], &[0; 9][..]] {
             assert!(TiffEncoder::new(std::io::Cursor::new(Vec::new()))
