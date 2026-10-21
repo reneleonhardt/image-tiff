@@ -1,6 +1,10 @@
 # Version 0.12.0 (unreleased)
 
 Fixes:
+- Fixed strip compression, short input buffers and invalid strip arguments.
+  Compressor state resets after write errors. TIFF and BigTIFF metadata
+  use the required alignment. Built-in RGBA types mark unassociated
+  alpha samples.
 - Decoding a tiled image whose width is not a multiple of the tile width no
   longer corrupts the columns below the right border tiles when extra samples
   are discarded (e.g. RGB with an unspecified extra sample). The horizontal

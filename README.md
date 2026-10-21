@@ -46,7 +46,7 @@ This table lists photometric interpretations and sample formats which are suppor
 Formats and interpretations not listed above or with empty entries are unsupported.
 
 - Baseline tags
-  - `ExtraSamples`
+  - Some `ExtraSamples` layouts
 - Extension tags
 
 ## Fuzzing
