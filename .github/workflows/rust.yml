@@ -61,6 +61,15 @@ jobs:
     - name: Cargo check
       run: cargo check --features "${{ matrix.feature }}" --no-default-features
 
+    - name: Test native Zstd decoding
+      if: ${{ matrix.feature == 'zstd' || matrix.feature == 'default,zstd' }}
+      run: |
+        cargo test --no-default-features --features "${{ matrix.feature }},zstd-safe-rust" --lib decoder::image::zstd_tests
+
+    - name: Test pure Rust Zstd decoding
+      if: ${{ matrix.feature == 'zstd' }}
+      run: cargo test --no-default-features --features zstd-safe-rust --lib decoder::image::zstd_tests
+
     - name: Cargo clippy
       if: ${{ matrix.feature != '' }}
       run: cargo clippy --no-deps --all-features --all-targets -- -D warnings

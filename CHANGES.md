@@ -1,6 +1,8 @@
 # Version 0.12.0 (unreleased)
 
 Fixes:
+- Fixed Zstandard chunk limits and checksum checks. Added limits for
+  tile padding and predictor buffers.
 - Fixed strip compression, short input buffers and invalid strip arguments.
   Compressor state resets after write errors. TIFF and BigTIFF metadata
   use the required alignment. Built-in RGBA types mark unassociated

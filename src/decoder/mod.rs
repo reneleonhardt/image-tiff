@@ -191,6 +191,8 @@ pub struct Limits {
     pub ifd_value_size: usize,
     /// Maximum size for intermediate buffer which may be used to limit the amount of data read per
     /// segment even if the entire image is decoded at once.
+    /// Native Zstd rounds its history-window limit up to a power of two. The minimum is 1 KiB.
+    /// The pure Rust Zstd decoder's history window is not configurable.
     pub intermediate_buffer_size: usize,
 }
 
