@@ -11,7 +11,9 @@ use crate::{
     ColorType, Directory, TiffError, TiffFormatError, TiffResult, TiffUnsupportedError, UsageError,
 };
 
-use std::io::{self, Cursor, Read, Seek};
+#[cfg(feature = "jpeg")]
+use std::io::Cursor;
+use std::io::{self, Read, Seek};
 use std::sync::Arc;
 
 #[derive(Debug)]
@@ -1705,6 +1707,7 @@ mod zstd_tests {
     use super::*;
     use crate::decoder::{Decoder, DecodingSampleBuffer};
     use crate::encoder::TiffEncoder;
+    use std::io::Cursor;
 
     // One checksummed raw block containing four grayscale samples.
     const FRAME: &[u8] = &[

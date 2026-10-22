@@ -310,7 +310,7 @@ fn encode_decode_strips_with_compression() {
             let mut image = encoder.new_image::<colortype::Gray8>(10, 3).unwrap();
             assert!(image.rows_per_strip(0).is_err());
             image.rows_per_strip(1).unwrap();
-            for row in data.chunks_exact(10) {
+            for row in data.as_chunks::<10>().0 {
                 image.write_strip(row).unwrap();
                 image
                     .encoder()
