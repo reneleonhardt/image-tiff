@@ -30,7 +30,7 @@ jobs:
       run: cargo build -v
     - name: test
       if: ${{ matrix.rust != '1.88.0' }}
-      run: cargo test -v && cargo doc -v
+      run: cargo test -v && cargo doc -v --all-features --no-deps
 
   test-platforms:
     runs-on: ${{ matrix.os }}
@@ -55,28 +55,26 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        feature: ["", deflate, jpeg, lzw, zstd, default, "default,zstd"]
+        feature: ["", deflate, fax, jpeg, lzw, webp, zstd, zstd-safe-rust, default, "default,zstd"]
     steps:
     - uses: actions/checkout@v6
     - uses: dtolnay/rust-toolchain@stable
       with:
         components: clippy
-    - name: Cargo check
-      run: cargo check --features "${{ matrix.feature }}" --no-default-features
+    - name: Cargo clippy
+      run: cargo clippy --lib --no-default-features --features "${{ matrix.feature }}" -- -D warnings
 
     - name: Test native Zstd encoding and decoding
       if: ${{ matrix.feature == 'zstd' || matrix.feature == 'default,zstd' }}
-      run: |
-        cargo test --no-default-features --features "${{ matrix.feature }},zstd-safe-rust" --lib
-        cargo test --no-default-features --features "${{ matrix.feature }},zstd-safe-rust" --test encode_images_with_compression
+      run: cargo test --no-default-features --features "${{ matrix.feature }},zstd-safe-rust" --lib --test encode_images_with_compression
 
     - name: Test pure Rust Zstd decoding
-      if: ${{ matrix.feature == 'zstd' }}
+      if: ${{ matrix.feature == 'zstd-safe-rust' }}
       run: cargo test --no-default-features --features zstd-safe-rust --lib decoder::image::zstd_tests
 
-    - name: Cargo clippy
-      if: ${{ matrix.feature != '' }}
-      run: cargo clippy --no-deps --all-features --all-targets -- -D warnings
+    - name: Test WebP decoding
+      if: ${{ matrix.feature == 'webp' }}
+      run: cargo test --no-default-features --features webp --test decode_geotiff_images test_webp_tiff
 
   other_archs:
     # github actions does not support 32-bit or big endian systems directly, but
@@ -105,7 +103,13 @@ jobs:
     - uses: dtolnay/rust-toolchain@stable
     - uses: taiki-e/install-action@cargo-hack
     - name: Check MSRV
-      run: cargo hack check --rust-version
+      env:
+        CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: fallback
+      run: cargo hack check --rust-version --each-feature --lib --exclude-features webp
+    # WebP uses Seek for io::Take, which requires Rust 1.89.
+    - uses: dtolnay/rust-toolchain@1.89.0
+    - name: Check all features with WebP
+      run: cargo +1.89.0 check --all-features --lib
 
   rustfmt:
     runs-on: ubuntu-latest
