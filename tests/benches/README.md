@@ -5,10 +5,15 @@ Transparency.png: Public Domain, according to Wikimedia
 
 ## Encoding benchmarks
 
-Compare Zstd level `1` with Deflate level `1` in the existing Criterion benchmark.
-`0` selects the Zstd default, currently level `3`. The benchmark selects `1` explicitly.
+Deflate uses Rust `miniz_oxide 0.9.1` through `flate2 1.1.10`, at level `1`.
+Zstd uses native `libzstd 1.5.7` through `zstd 0.14.3`, at level `1`.
+`0` selects the Zstd default, currently level `3`.
 Both algorithms use RGB32Float data and floating-point prediction.
 These settings do not guarantee equal file sizes.
+
+The benchmark uses Criterion 0.7. On these photo benchmarks, interleaved comparisons with 0.8.2 showed no consistent timing or noise improvement.
+Criterion 0.7 avoids adding a C compiler requirement to default test builds.
+
 The benchmark prints each complete TIFF size in bytes with its full benchmark name before timing.
 
 ```sh
@@ -69,28 +74,33 @@ magick tests/benches/corpus/cc0/city/photo-rgb-f32-deflate-fpred.tif -define qua
 
 Different tool versions or builds can change RAW development or float conversion. Use the same prepared pixels for both algorithms.
 
-Run both photo comparisons:
+Run both photo comparisons twice:
 
 ```sh
-for photo in foliage city; do
-  CARGO_PROFILE_BENCH_DEBUG=1 TIFF_BENCH_DIR="tests/benches/corpus/cc0/$photo" cargo bench --features zstd --bench encode -- photo-tiff-encode/ --warm-up-time 1 --measurement-time 3 --sample-size 20 --save-baseline "$photo"
+for run in 1 2; do
+  for photo in foliage city; do
+    CARGO_PROFILE_BENCH_DEBUG=1 TIFF_BENCH_DIR="tests/benches/corpus/cc0/$photo" cargo bench --features zstd --bench encode -- photo-tiff-encode/ --warm-up-time 1 --measurement-time 3 --sample-size 20 --save-baseline "$photo-$run"
+  done
 done
 ```
 
-Criterion saves each photo’s estimates under `target/criterion/photo-tiff-encode/<algorithm>/<photo>/estimates.json`.
+Criterion saves each photo’s estimates under `target/criterion/photo-tiff-encode/<algorithm>/<photo>-<run>/estimates.json`.
 
 ## Photo measurements
 
 Each iteration writes a new TIFF in memory. The benchmark decodes the source image before timing.
-The commands above collect 20 samples with a 1-second warm-up and a 3-second measurement target.
+Both algorithms start with 4 bytes of output capacity per pixel. Timings include output allocation and buffer growth.
+These results are from macOS arm64.
+Each command collects 20 samples with a 1-second warm-up and a 3-second measurement target.
 
 Large cases take longer to collect 20 samples.
-Times are means in milliseconds, rounded to whole numbers. Parentheses show 95% confidence intervals.
+Times are means across two process runs, in milliseconds and rounded to whole numbers.
+Parentheses show the minimum and maximum run means.
 
 | Input | Deflate 1 | Zstd 1 | Wall-time reduction |
 | --- | ---: | ---: | ---: |
-| 6000 × 4000 foliage photo | 835 (829–844) | 332 (329–336) | 60% |
-| 4000 × 3000 city photo | 537 (535–540) | 146 (144–148) | 73% |
+| 6000 × 4000 foliage photo | 809 (805–813) | 320 (318–322) | 60% |
+| 4000 × 3000 city photo | 523 (519–527) | 142 (139–146) | 73% |
 
 Complete TIFF sizes include tags and strip tables. One MiB is 1,048,576 bytes.
 

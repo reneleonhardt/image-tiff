@@ -9,14 +9,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: ["1.88.0", stable, beta, nightly]
+        rust: ["1.89.0", stable, beta, nightly]
     steps:
     - uses: actions/checkout@v6
 
     - uses: dtolnay/rust-toolchain@nightly
-      if: ${{ matrix.rust == '1.88.0' }}
+      if: ${{ matrix.rust == '1.89.0' }}
     - name: Generate Cargo.lock with minimal-version dependencies
-      if: ${{ matrix.rust == '1.88.0' }}
+      if: ${{ matrix.rust == '1.89.0' }}
       run: cargo -Zminimal-versions generate-lockfile
 
     - uses: dtolnay/rust-toolchain@v1
@@ -27,9 +27,16 @@ jobs:
       with:
         cache-on-failure: true
     - name: build
+      if: ${{ matrix.rust != '1.89.0' }}
       run: cargo build -v
+    - name: Build all targets with minimum dependencies
+      if: ${{ matrix.rust == '1.89.0' }}
+      run: cargo build -v --all-features --all-targets
+    - name: Test pure Rust Zstd decoding with minimum dependencies
+      if: ${{ matrix.rust == '1.89.0' }}
+      run: cargo test --no-default-features --features zstd-safe-rust --lib decoder::image::zstd_tests
     - name: test
-      if: ${{ matrix.rust != '1.88.0' }}
+      if: ${{ matrix.rust != '1.89.0' }}
       run: cargo test -v && cargo doc -v --all-features --no-deps
 
   test-platforms:
@@ -105,11 +112,7 @@ jobs:
     - name: Check MSRV
       env:
         CARGO_RESOLVER_INCOMPATIBLE_RUST_VERSIONS: fallback
-      run: cargo hack check --rust-version --each-feature --lib --exclude-features webp
-    # WebP uses Seek for io::Take, which requires Rust 1.89.
-    - uses: dtolnay/rust-toolchain@1.89.0
-    - name: Check all features with WebP
-      run: cargo +1.89.0 check --all-features --lib
+      run: cargo hack check --rust-version --each-feature --lib
 
   rustfmt:
     runs-on: ubuntu-latest
